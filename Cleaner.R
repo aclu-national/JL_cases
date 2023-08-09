@@ -34,11 +34,11 @@ unested_officers <- split_and_unnest(police_officerss_names)
 unested_plaintiffs <- split_and_unnest(plaintiffs)
 
 # Number of police departments involved in JL lawsuits
-n_involved <- length(unique(unested_department$departments %>% 
+n_involved <- length(unique(unested_department$new_column %>% 
                               tolower()))
 
 # Number of police departments sued
-n_sued <- length(unique(filter(unested_department, pd_is_a_named_defendant == "Y")$departments %>% 
+n_sued <- length(unique(filter(unested_department, pd_is_a_named_defendant == "Y")$new_column %>% 
                           tolower()))
 
 # Number of govenmental entities or other agencies sued
@@ -63,9 +63,8 @@ n_cases <- nrow(df)
 n_appeal <- sum(df$appeal_stage == "Y", na.rm = TRUE)
 
 # Defining a function to calculate the destinct sum across lawsuits
-calculate_distinct_sum <- function(column_name) {
+calculate_sum <- function(column_name) {
   result <- df %>%
-    distinct(lawsuit_number, .keep_all = TRUE) %>%
     pull({{ column_name }}) %>%
     sum(na.rm = TRUE)
   
@@ -73,49 +72,49 @@ calculate_distinct_sum <- function(column_name) {
 }
 
 # Number of Qualified Immunity trial wins
-n_qi_trial_wins <- calculate_distinct_sum("qi_trial_win_number")
+n_qi_trial_wins <- calculate_sum("qi_trial_win_number")
 
 # Number of Qualified Immunity appellate wins
-n_qi_appellate_wins <- calculate_distinct_sum("qi_appellate_win_number")
+n_qi_appellate_wins <- calculate_sum("qi_appellate_win_number")
 
 # Number of absolute immunity trial wins
-n_absolute_trial_wins <- calculate_distinct_sum("absolute_immunity_trial_win_number")
+n_absolute_trial_wins <- calculate_sum("absolute_immunity_trial_win_number")
 
 # Number of absolute immunity appellate wins
-n_absolute_appellate_wins <- calculate_distinct_sum("absolute_immunity_appelate_win_number")
+n_absolute_appellate_wins <- calculate_sum("absolute_immunity_appelate_win_number")
 
 # Number Heck trial wins
-n_heck_trial_wins <- calculate_distinct_sum("heck_trial_win_number")
+n_heck_trial_wins <- calculate_sum("heck_trial_win_number")
 
 # Number Heck appellate wins
-n_heck_appellate_wins <-calculate_distinct_sum("heck_appellate_win_number")
+n_heck_appellate_wins <-calculate_sum("heck_appellate_win_number")
 
 # Number Lyons trial wins 
-n_lyons_trial_wins <- calculate_distinct_sum("lyons_trial_win_number")
+n_lyons_trial_wins <- calculate_sum("lyons_trial_win_number")
 
 # Number Lyons appellate wins 
-n_lyons_appellate_wins <- calculate_distinct_sum("lyons_appellate_win_number")
+n_lyons_appellate_wins <- calculate_sum("lyons_appellate_win_number")
 
 # Number SOL trial wins 
-n_sol_trial_wins <- calculate_distinct_sum("sol_trial_win_number")
+n_sol_trial_wins <- calculate_sum("sol_trial_win_number")
 
 # Number SOL appellate wins 
-n_sol_appellate_wins <- calculate_distinct_sum("sol_appellate_win_number")
+n_sol_appellate_wins <- calculate_sum("sol_appellate_win_number")
 
 # Number of Monell trial wins
-n_monell_trial_wins <- calculate_distinct_sum("monell_trial_win_number")
+n_monell_trial_wins <- calculate_sum("monell_trial_win_number")
 
 # Number of Monell appellate wins
-n_monell_appellate_wins <- calculate_distinct_sum("monell_appellate_win_number")
+n_monell_appellate_wins <- calculate_sum("monell_appellate_win_number")
 
 # Number of Settlements
-n_settlements <- sum(df$settlement == "Y", na.rm = TRUE)
+n_settlements <- sum(distinct(df, lawsuit_number, .keep_all = TRUE)$settlement == "Y", na.rm = TRUE)
 
 # Number of Individual Defendants Named in Settlements
 n_defendants_in_settlements <- length(unique(filter(unested_officers, settlement == "Y")$new_column))
 
 # Number of offers of judgment
-n_judgement <- sum(df$offer_of_judgement, na.rm = TRUE)
+n_judgement <- calculate_sum("offer_of_judgement")
 
 # Defining all categories
 item <- c("Number of police departments involved in Justice Lab lawsuits",
@@ -174,44 +173,158 @@ value <- c(n_involved,
 # Turning the two vectors above into a dataframe
 values_df <- data.frame(item,value)
 
-# Distribution of courts the cases are in
-court_distribution <- df %>%
-  tabyl(court_type) %>%
-  arrange(desc(n))
-
-# Distribution of parishes the cases are in 
-parish_distribution <- df %>%
-  tabyl(parishes) %>%
-  arrange(desc(n))
-
-# Distribution of police departments the cases are in
-pd_distribution <- unested_department %>%
+# Police departments involved table
+pd_table <- unested_department %>%
   tabyl(new_column) %>%
   arrange(desc(n))
 
-# Distribution of officers in the cases
-officer_distribution <- unested_officers %>%
+# Police departments sued table
+pd_sued_table <- unested_department %>% 
+  filter(pd_is_a_named_defendant == "Y") %>%
   tabyl(new_column) %>%
   arrange(desc(n))
 
-# Distribution of entities in the cases
-entity_distribution <- unested_entity %>%
+# Entities sued table
+entity_sued_table <- unested_entity %>%
   tabyl(new_column, show_na = FALSE) %>%
   arrange(desc(n))
 
+# Parish filed suit table
+parish_sued_table <- df %>%
+  tabyl(parishes) %>%
+  arrange(desc(n))
+
+# Officers sued table
+officer_sued_table <- unested_officers %>%
+  tabyl(new_column) %>%
+  arrange(desc(n))
+
+# Plaintiffs represented table
+plaintiff_represented_table <- unested_plaintiffs %>%
+  tabyl(new_column) %>%
+  arrange(desc(n))
+
+# Lawsuits table
+lawsuits_table <- df %>%
+  distinct(lawsuit_number, .keep_all = TRUE) %>%
+  select(c("case_number", "case_name"))
+
+# Cases taken to appeal table
+appeal_table <- df %>%
+  filter(appeal_stage == "Y") %>%
+  select(c("case_number", "case_name"))
+
+
+win_table <- function(variable) {
+  result <- df %>%
+    filter(!is.na({{variable}})) %>%
+    select(c("case_number", "case_name", {{ variable }}))
+  
+  print(result)
+}
+
+# QI trial wins table
+qi_trial_win_table <- win_table(qi_trial_win_number)
+
+# QI appellate win table
+qi_appellate_win_table <- win_table(qi_appellate_win_number)
+
+# Absolute immunity trial win table
+absolute_trial_win_table <- win_table(absolute_immunity_trial_win_number)
+
+# Absolute immunity appellate win table
+absolute_appellate_win_table <- win_table(absolute_immunity_appelate_win_number)
+
+# Heck trial win table 
+heck_trial_win_table <- win_table(heck_trial_win_number)
+
+# Heck appellate win table
+heck_appellate_win_table <- win_table(heck_appellate_win_number)
+
+# Lyons trial win table 
+lyons_trial_win_table <- win_table(lyons_trial_win_number)
+
+# Lyons appellate win table
+lyons_appellate_win_table <- win_table(lyons_appellate_win_number)
+
+# SOL trial win table 
+sol_trial_win_table <- win_table(sol_trial_win_number)
+
+# SOL appellate win table
+sol_appellate_win_table <- win_table(sol_appellate_win_number)
+
+# Monell trial win table
+monell_trial_win_table <- win_table(monell_trial_win_number)
+
+# Monell appellate win table
+monell_appellate_win_table <- win_table(monell_appellate_win_number)
+
+# Lawsuits with settlements table
+lawsuit_settlements_table <- df %>%
+  distinct(lawsuit_number, .keep_all = TRUE) %>%
+  filter(settlement == "Y") %>%
+  select(c("case_number", "case_name"))
+
+# Defendants named in settlements table
+officers_in_settlements_table <- unested_officers %>%
+  filter(settlement == "Y") %>%
+  tabyl(new_column) %>%
+  arrange(desc(n))
+
+# Offers of judgement table
+judgement_offer_table <- df %>%
+  filter(!is.na(offer_of_judgement)) %>%
+  select(c("case_number", "case_name"))
+
 # Defining sheets for the spreadsheet
 sheets = c("Values", 
-           "Court Distribution", 
-           "Parish Distribution", 
-           "Officers Distribution", 
-           "Entity Distribution")
+           "Police departments involved", 
+           "Police departments sued", 
+           "Parishes where we filed suit", 
+           "Officers sued",
+           "Plaintiffs represented",
+           "All Lawsuits",
+           "Cases taken to appeal",
+           "QI trial wins",
+           "QI appellate wins",
+           "Absolute immunity trial wins",
+           "Absolute immunity appellate wins",
+           "Heck trial wins",
+           "Heck appellate wins",
+           "Lyons trial wins",
+           "Lyons appellate wins",
+           "SOL trial wins",
+           "SOL appellate wins",
+           "Monell trial wins",
+           "Monell appellate wins",
+           "Lawsuits with settlements",
+           "Officers named in settlements",
+           "Offers of judgement")
 
 # Defining sheet values
 data_frames = list(values_df, 
-                   court_distribution, 
-                   parish_distribution, 
-                   officer_distribution, 
-                   entity_distribution)
+                   pd_table, 
+                   pd_sued_table, 
+                   parish_sued_table, 
+                   officer_sued_table,
+                   plaintiff_represented_table,
+                   lawsuits_table,
+                   appeal_table,
+                   qi_trial_win_table,
+                   qi_appellate_win_table,
+                   absolute_trial_win_table,
+                   absolute_appellate_win_table,
+                   heck_trial_win_table,
+                   heck_appellate_win_table,
+                   lyons_trial_win_table,
+                   lyons_appellate_win_table,
+                   sol_trial_win_table,
+                   sol_appellate_win_table,
+                   monell_trial_win_table,
+                   monell_appellate_win_table,
+                   lawsuit_settlements_table,
+                   officers_in_settlements_table,
+                   judgement_offer_table)
 
 # Adding the new sheets to the spreadsheet
 for (i in seq_along(sheets)) {
