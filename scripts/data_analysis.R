@@ -2,7 +2,7 @@
 
 # Number of police departments involved in JL lawsuits
 n_involved <- length(unique(unested_department$new_column %>% 
-                              tolower()))
+                              tolower()))-1
 
 # Number of police departments sued
 n_sued <- length(unique(filter(unested_department, pd_is_a_named_defendant == "Y")$new_column %>% 
@@ -15,7 +15,9 @@ n_entities <- length(unique(unested_entity$new_column %>% tolower()))-1
 n_parishes <- length(unique(df$parishes %>% tolower()))
 
 # Number of police officers sued
-n_officers <- length(unique(unested_officers$new_column %>% tolower()))
+n_names <- length(unique(filter(unested_officers, !str_detect(tolower(unested_officers$new_column),"doe"))$new_column %>% tolower())) - 1
+n_doe <- sum(str_detect(tolower(unested_officers$new_column),"doe"),na.rm = TRUE)
+n_officers <- n_names + n_doe
 
 # Number of plaintiffs represented
 n_plaintiffs <- length(unique(unested_plaintiffs$new_column %>% tolower())) 
@@ -75,17 +77,16 @@ n_monell_trial_wins <- calculate_sum("monell_trial_win_number")
 n_monell_appellate_wins <- calculate_sum("monell_appellate_win_number")
 
 # Number of Settlements
-n_settlements <- sum(distinct(df, lawsuit_number, .keep_all = TRUE)$settlement == "Y", na.rm = TRUE)
+n_settlements <- sum(df$settlement == "Y", na.rm = TRUE)
 
 # Number of Individual Defendants Named in Settlements
-n_defendants_in_settlements <- length(unique(filter(unested_officers, settlement == "Y")$new_column))
+n_defendants_in_settlements <- sum(df$number_of_officers_in_settlements, na.rm = TRUE)
 
 # Number of offers of judgment
 n_judgement <- calculate_sum("offer_of_judgement")
 
 # Number of cases won or pending
 n_won_or_pending <- df %>%
-  distinct(lawsuit_number, .keep_all = TRUE) %>%
   filter(case_status %in% c("Won", "Pending")) %>%
   summarize(won_or_pending = nrow(.)) %>%
   pull(won_or_pending)
@@ -105,6 +106,8 @@ n_legal_wins <- sum(n_qi_appellate_wins,
                     n_judgement,
                     n_sol_appellate_wins,
                     n_sol_trial_wins)
+
+n_qi_wins <- sum(n_qi_appellate_wins, n_qi_trial_wins)
 
 # --------------------------------------- Tables ----------------------------------------------------
 
@@ -135,7 +138,8 @@ item <- c("Number of police departments involved in Justice Lab lawsuits",
           "Number of Individual Defendants Named in Settlements",
           "Number of offers of judgment",
           "Number won or pending",
-          "Number of legal wins"
+          "Number of legal wins",
+          "Number of Total QI Wins"
 )
 
 # Defining all values for the categories
@@ -164,7 +168,8 @@ value <- c(n_involved,
            n_defendants_in_settlements,
            n_judgement,
            n_won_or_pending,
-           n_legal_wins)
+           n_legal_wins,
+           n_qi_wins)
 
 # Turning the two vectors above into a dataframe
 values_df <- data.frame(item,value)
@@ -325,3 +330,127 @@ legal_win_table <- data.frame(
 ) %>%
   filter(win_count != "0") %>%
   arrange(win_count)
+
+
+# ---------------------- Compare Numbers with Viktor ---------------------------
+
+viktor_numbers <- data.frame(
+  variable = c(
+    "Number of police departments involved in JL lawsuits",
+    "Number of police departments sued (named defendants)",
+    "Number of governmental entities or other agencies sued",
+    "Number of parishes where we have filed suit",
+    "Number of police officers sued",
+    "Number of plaintiffs represented",
+    "Total number of lawsuits",
+    "Total number of cases",
+    "Number of cases we took to appeal stage",
+    "Number of QI trial wins",
+    "Number of QI appellate wins",
+    "Number of absolute immunity trial wins",
+    "Number of absolute immunity appellate wins",
+    "Number Heck trial wins",
+    "Number Heck appellate wins",
+    "Number Lyons trial wins",
+    "Number Lyons appellate wins",
+    "Number SOL trial wins",
+    "Number SOL appellate wins",
+    "Number of Monell trial wins",
+    "Number of Monell appellate wins",
+    "Number of Settlements",
+    "Number of Individual Defendants Named in Settlements",
+    "Number of offers of judgment"
+  ),
+  count = c(
+    n_involved,
+    n_sued,
+    n_entities,
+    n_parishes,
+    n_officers,
+    n_plaintiffs,
+    n_lawsuits,
+    n_cases,
+    n_appeal,
+    n_qi_trial_wins,
+    n_qi_appellate_wins,
+    n_absolute_trial_wins,
+    n_absolute_appellate_wins,
+    n_heck_trial_wins,
+    n_heck_appellate_wins,
+    n_lyons_trial_wins,
+    n_lyons_appellate_wins,
+    n_sol_trial_wins,
+    n_sol_appellate_wins,
+    n_monell_trial_wins,
+    n_monell_appellate_wins,
+    n_settlements,
+    n_defendants_in_settlements,
+    n_judgement
+  ),
+  variables = c(
+    tolower(paste(unique(unested_department$new_column), collapse = ", ")),
+    tolower(paste(unique(filter(unested_department, pd_is_a_named_defendant == "Y")$new_column), collapse = ", ")),
+    tolower(paste(unique(unested_entity$new_column), collapse = ", ")),
+    tolower(paste(unique(df$parishes), collapse = ", ")),
+    tolower(paste(unique(unested_officers$new_column), collapse = ", ")),
+    tolower(paste(unique(unested_plaintiffs$new_column), collapse = ", ")),
+    paste(unique(df$lawsuit_number), collapse = ", "),
+    paste(unique(df$case_number), collapse = ", "),
+    paste(unique(filter(df, appeal_stage == "Y")$case_name), collapse = ", "),
+    
+    paste(filter(df, !is.na(qi_trial_win_number)) %>% 
+            mutate(e = paste0(case_name, " (", qi_trial_win_number, ")")) %>% 
+            pull(e), collapse = ", "),
+    
+    paste(filter(df, !is.na(qi_appellate_win_number)) %>% 
+            mutate(e = paste0(case_name, " (", qi_appellate_win_number, ")")) %>% 
+            pull(e), collapse = ", "),
+    
+    paste(filter(df, !is.na(absolute_immunity_trial_win_number)) %>% 
+            mutate(e = paste0(case_name, " (", absolute_immunity_trial_win_number, ")")) %>% 
+            pull(e), collapse = ", "),
+    
+    paste(filter(df, !is.na(absolute_immunity_appelate_win_number)) %>% 
+            mutate(e = paste0(case_name, " (", absolute_immunity_appelate_win_number, ")")) %>% 
+            pull(e), collapse = ", "),
+    
+    paste(filter(df, !is.na(heck_trial_win_number)) %>% 
+            mutate(e = paste0(case_name, " (", heck_trial_win_number, ")")) %>% 
+            pull(e), collapse = ", "),
+    
+    paste(filter(df, !is.na(heck_appellate_win_number)) %>% 
+            mutate(e = paste0(case_name, " (", heck_appellate_win_number, ")")) %>% 
+            pull(e), collapse = ", "),
+    
+    paste(filter(df, !is.na(lyons_trial_win_number)) %>% 
+            mutate(e = paste0(case_name, " (", lyons_trial_win_number, ")")) %>% 
+            pull(e), collapse = ", "),
+    
+    paste(filter(df, !is.na(lyons_appellate_win_number)) %>% 
+            mutate(e = paste0(case_name, " (", lyons_appellate_win_number, ")")) %>% 
+            pull(e), collapse = ", "),
+    
+    paste(filter(df, !is.na(sol_trial_win_number)) %>% 
+            mutate(e = paste0(case_name, " (", sol_trial_win_number, ")")) %>% 
+            pull(e), collapse = ", "),
+    
+    paste(filter(df, !is.na(sol_appellate_win_number)) %>% 
+            mutate(e = paste0(case_name, " (", sol_appellate_win_number, ")")) %>% 
+            pull(e), collapse = ", "),
+    
+    paste(filter(df, !is.na(monell_trial_win_number)) %>% 
+            mutate(e = paste0(case_name, " (", monell_trial_win_number, ")")) %>% 
+            pull(e), collapse = ", "),
+    
+    paste(filter(df, !is.na(monell_appellate_win_number)) %>% 
+            mutate(e = paste0(case_name, " (", monell_appellate_win_number, ")")) %>% 
+            pull(e), collapse = ", "),
+    
+    NA,
+    NA,
+    NA
+  ),
+  stringsAsFactors = FALSE
+)
+
+
